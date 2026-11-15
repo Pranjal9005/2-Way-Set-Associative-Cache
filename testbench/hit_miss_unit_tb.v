@@ -146,8 +146,16 @@ module hit_miss_unit_tb;
         lru_bit = 0;
         check_result(0, 1, 0, 0, 0);
 
+        // Test 9: Both ways report hit simultaneously (defensive priority selects Way 0)
+        valid_way0 = 1;
+        valid_way1 = 1;
+        tag_match_way0 = 1;
+        tag_match_way1 = 1;
+        lru_bit = 1;
+        check_result(1, 0, 0, 1, 1);
+
         $display("--------------------------------");
-        $display("RESULT: %0d/8 CHECKS PASSED", pass_count);
+        $display("RESULT: %0d/9 CHECKS PASSED", pass_count);
         $display("HIT/MISS UNIT TEST PASSED");
         $display("--------------------------------");
 

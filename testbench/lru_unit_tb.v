@@ -175,11 +175,26 @@ module lru_unit_tb;
         check_lru(1, 1'b1);
 
 
+        // TEST 8: Reset while cache has valid updated LRU state
+        $display("\nTEST 8: Reset with Non-zero LRU State");
+        perform_access(0, 0);
+        check_lru(0, 1'b1);
+
+        @(negedge clk);
+        reset = 1;
+        @(posedge clk);
+        #1;
+        reset = 0;
+
+        check_lru(0, 1'b0);
+        check_lru(1, 1'b0);
+
+
         // Final result
         $display("\n================================");
-        $display("RESULT: %0d/8 CHECKS PASSED", passed);
-        if (passed !== 8) begin
-            $fatal(1, "LRU testbench check count mismatch: expected 8 passed checks");
+        $display("RESULT: %0d/11 CHECKS PASSED", passed);
+        if (passed !== 11) begin
+            $fatal(1, "LRU testbench check count mismatch: expected 11 passed checks");
         end
         $display("LRU UNIT TEST PASSED");
         $display("================================");

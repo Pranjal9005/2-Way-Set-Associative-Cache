@@ -74,6 +74,33 @@ module main_memory_tb;
         else
             $fatal(1, "Read after write failed");
 
+        // Read boundary address 4'hF: expected AF
+        @(negedge clk);
+        write_req = 0;
+        address = 4'hF;
+        read_req = 1;
+
+        @(posedge clk);
+        #1;
+        if (ready && read_data == 8'hAF)
+            $display("PASS: Read boundary address 4'hF");
+        else
+            $fatal(1, "Read boundary address 4'hF failed");
+
+        // Test simultaneous read and write requests (should reject/no-op)
+        @(negedge clk);
+        address = 4'hF;
+        read_req = 1;
+        write_req = 1;
+        write_data = 8'h99;
+
+        @(posedge clk);
+        #1;
+        if (!ready)
+            $display("PASS: Simultaneous read and write rejected (ready deasserted)");
+        else
+            $fatal(1, "Simultaneous read and write should not assert ready");
+
         $finish;
     end
 
