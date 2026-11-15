@@ -31,7 +31,10 @@ module cache_controller (
 
     // LRU update interface
     output reg lru_update_en,
-    output reg lru_access_way
+    output reg lru_access_way,
+
+    // State visibility
+    output wire lookup_active
 );
 
     // FSM states
@@ -51,7 +54,10 @@ module cache_controller (
     reg selected_way_reg;
 
     // CPU can submit a request when controller is idle
-    assign request_ready = (state == IDLE);
+    assign request_ready  = (state == IDLE);
+
+    // Active only during the LOOKUP cycle
+    assign lookup_active  = (state == LOOKUP);
 
     // Sequential logic
     always @(posedge clk) begin

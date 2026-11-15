@@ -60,7 +60,17 @@ module cache_2way (
     // Selected cache data
     wire [7:0] hit_data;
 
-    assign cache_hit = hit;
+    // Controller state visibility
+    wire lookup_active;
+
+    // cache_hit is only asserted when the controller is actively in the
+    // LOOKUP state, preventing spurious hits from propagating to the CPU
+    // interface when no request is being processed.
+    assign cache_hit = lookup_active && hit;
+
+    // NOTE: This cache implements read-only access.  The main_memory write
+    // ports (write_req / write_data) are tied off.  Write-through or
+    // write-back support is out of scope for this design.
 
     // --------------------------------
     // 1. Cache Controller
@@ -92,7 +102,9 @@ module cache_2way (
         .cache_write_data(cache_write_data),
 
         .lru_update_en(lru_update_en),
-        .lru_access_way(lru_access_way)
+        .lru_access_way(lru_access_way),
+
+        .lookup_active(lookup_active)
     );
 
 
@@ -159,7 +171,9 @@ module cache_2way (
         .set_index(set_index),
         .update_en(lru_update_en),
 
-        .access_valid(1'b1),
+        // access_valid mirrors lru_update_en: the LRU state is only
+        // meaningful when the controller actually triggers an update.
+        .access_valid(lru_update_en),
         .access_way(lru_access_way),
 
         .lru_bit(lru_bit)
