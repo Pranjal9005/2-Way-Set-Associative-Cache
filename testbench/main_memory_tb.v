@@ -47,7 +47,7 @@ module main_memory_tb;
         if (ready && read_data == 8'hA3)
             $display("PASS: Memory read");
         else
-            $display("FAIL: Memory read");
+            $fatal(1, "Memory read failed");
 
         // Write 55 to address 3
         @(negedge clk);
@@ -60,7 +60,7 @@ module main_memory_tb;
         if (ready)
             $display("PASS: Memory write");
         else
-            $display("FAIL: Memory write");
+            $fatal(1, "Memory write failed");
 
         // Read address 3 again: expected 55
         @(negedge clk);
@@ -72,7 +72,7 @@ module main_memory_tb;
         if (ready && read_data == 8'h55)
             $display("PASS: Read after write");
         else
-            $display("FAIL: Read after write");
+            $fatal(1, "Read after write failed");
 
         $finish;
     end

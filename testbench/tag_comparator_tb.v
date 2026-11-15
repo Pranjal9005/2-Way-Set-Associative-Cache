@@ -16,8 +16,8 @@ module tag_comparator_tb;
         .requested_tag(requested_tag),
         .tag_way0(tag_way0),
         .tag_way1(tag_way1),
-        .hit_way0(hit_way0),
-        .hit_way1(hit_way1)
+        .tag_match_way0(hit_way0),
+        .tag_match_way1(hit_way1)
     );
 
     // Task to check comparator outputs

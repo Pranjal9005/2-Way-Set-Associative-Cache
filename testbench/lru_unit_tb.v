@@ -178,6 +178,9 @@ module lru_unit_tb;
         // Final result
         $display("\n================================");
         $display("RESULT: %0d/8 CHECKS PASSED", passed);
+        if (passed !== 8) begin
+            $fatal(1, "LRU testbench check count mismatch: expected 8 passed checks");
+        end
         $display("LRU UNIT TEST PASSED");
         $display("================================");
 
