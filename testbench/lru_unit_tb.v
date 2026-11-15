@@ -177,7 +177,7 @@ module lru_unit_tb;
 
         // Final result
         $display("\n================================");
-        $display("RESULT: %0d/7 CHECKS PASSED", passed);
+        $display("RESULT: %0d/8 CHECKS PASSED", passed);
         $display("LRU UNIT TEST PASSED");
         $display("================================");
 
