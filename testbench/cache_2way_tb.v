@@ -16,6 +16,7 @@ module cache_2way_tb;
     integer failed;
     integer memory_read_count;
     integer reads_before;
+    integer addr;
 
     // Instantiate complete cache
     cache_2way dut (
@@ -306,6 +307,42 @@ module cache_2way_tb;
             failed = failed + 1;
         end
 
+
+        // TEST 14: Reset after filling the cache
+        $display("\nTEST 14: Reset after cache fill");
+
+        // Assert reset
+        @(negedge clk);
+        reset = 1'b1;
+
+        // Hold reset for two clock cycles
+        repeat (2) @(posedge clk);
+
+        // Deassert reset
+        @(negedge clk);
+        reset = 1'b0;
+
+        // Previously cached address should now miss
+        reads_before = memory_read_count;
+
+        $display("Access address 3 after reset");
+        cpu_read(4'b0011, 8'hA3);
+
+        if (memory_read_count == reads_before + 1) begin
+            $display("PASS: Reset invalidated previous cache entry");
+            passed = passed + 1;
+        end
+        else begin
+            $display("FAIL: Expected a cold miss after reset");
+            failed = failed + 1;
+        end
+
+        // TEST 15: Verify all 16 memory addresses
+        $display("\nTEST 15: Verify all 16 addresses");
+
+        for (addr = 0; addr < 16; addr = addr + 1) begin
+            cpu_read(addr[3:0], 8'hA0 + addr);
+        end
 
         // Final report
         repeat (2) @(posedge clk);
