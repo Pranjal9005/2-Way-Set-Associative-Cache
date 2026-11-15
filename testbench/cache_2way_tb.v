@@ -423,6 +423,112 @@ module cache_2way_tb;
         wait(request_ready == 1'b1);
 
 
+        // TEST 17: Hold request_valid until cache becomes ready
+        $display("\nTEST 17: Hold request_valid until acceptance");
+
+        // Ensure controller is idle
+        wait(request_ready == 1'b1);
+
+        reads_before = accepted_count;
+
+        // Send first request: address 2
+        @(negedge clk);
+        address = 4'b0010;
+        request_valid = 1'b1;
+
+        @(posedge clk);
+        #1;
+
+        // First request has been accepted
+        if (request_ready == 1'b0) begin
+            $display("PASS: First request accepted");
+            passed = passed + 1;
+        end
+        else begin
+            $display("FAIL: First request not accepted");
+            failed = failed + 1;
+        end
+
+        // Change address while keeping request_valid HIGH
+        @(negedge clk);
+        address = 4'b0100;
+
+        // Wait for first response
+        handshake_timeout = 0;
+
+        while (response_valid !== 1'b1 &&
+               handshake_timeout < 20) begin
+            @(posedge clk);
+            #1;
+            handshake_timeout = handshake_timeout + 1;
+        end
+
+        if (response_valid === 1'b1 &&
+            response_data === 8'hA2) begin
+            $display("PASS: First response received correctly");
+            passed = passed + 1;
+        end
+        else begin
+            $display("FAIL: First response incorrect or timeout");
+            failed = failed + 1;
+        end
+
+        // Keep request_valid HIGH until next request acceptance
+        handshake_timeout = 0;
+
+        while (request_ready !== 1'b1 &&
+               handshake_timeout < 20) begin
+            @(negedge clk);
+            handshake_timeout = handshake_timeout + 1;
+        end
+
+        if (request_ready === 1'b1) begin
+            // Request is accepted on the next rising edge
+            @(posedge clk);
+            #1;
+            request_valid = 1'b0;
+
+            $display("PASS: Second request accepted when ready");
+            passed = passed + 1;
+        end
+        else begin
+            $display("FAIL: Cache did not become ready");
+            failed = failed + 1;
+            request_valid = 1'b0;
+        end
+
+        // Wait for second response
+        handshake_timeout = 0;
+
+        while (response_valid !== 1'b1 &&
+               handshake_timeout < 20) begin
+            @(posedge clk);
+            #1;
+            handshake_timeout = handshake_timeout + 1;
+        end
+
+        if (response_valid === 1'b1 &&
+            response_data === 8'hA4) begin
+            $display("PASS: Second response received correctly");
+            passed = passed + 1;
+        end
+        else begin
+            $display("FAIL: Second response incorrect or timeout");
+            failed = failed + 1;
+        end
+
+        // Exactly two requests should have been accepted
+        if (accepted_count == reads_before + 2) begin
+            $display("PASS: Exactly two requests accepted");
+            passed = passed + 1;
+        end
+        else begin
+            $display("FAIL: Unexpected request acceptance count");
+            failed = failed + 1;
+        end
+
+        wait(request_ready == 1'b1);
+
         // FINAL REPORT
         repeat (2) @(posedge clk);
 
