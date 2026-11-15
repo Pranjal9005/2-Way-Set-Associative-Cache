@@ -37,17 +37,20 @@ module cache_2way_tb;
 
     // Count main-memory read requests
     always @(posedge clk) begin
-        if (dut.mem_read_req)
+        if (reset)
+            memory_read_count = 0;
+        else if (dut.mem_read_req)
             memory_read_count = memory_read_count + 1;
     end
 
-    // Send one CPU read request and check returned data
+    // CPU read task
     task cpu_read;
         input [3:0] addr;
         input [7:0] expected_data;
-        begin
+        integer timeout;
 
-            // Wait until controller returns to IDLE
+        begin
+            // Wait until controller is ready
             wait(request_ready == 1'b1);
 
             // Send request
@@ -60,37 +63,35 @@ module cache_2way_tb;
             #1;
             request_valid = 1'b0;
 
-            // Wait for response, with timeout
-            begin : wait_for_response
-                integer timeout;
-                timeout = 0;
+            // Wait for response with timeout
+            timeout = 0;
 
-                while (response_valid !== 1'b1 && timeout < 20) begin
-                    @(posedge clk);
-                    #1;
-                    timeout = timeout + 1;
-                end
+            while (response_valid !== 1'b1 && timeout < 20) begin
+                @(posedge clk);
+                #1;
+                timeout = timeout + 1;
+            end
 
-                if (response_valid !== 1'b1) begin
-                    $display("FAIL: Timeout for address %h", addr);
-                    failed = failed + 1;
-                end
-                else if (response_data !== expected_data) begin
-                    $display("FAIL: Address %h | Expected %h | Got %h",
-                             addr, expected_data, response_data);
-                    failed = failed + 1;
-                end
-                else begin
-                    $display("PASS: Address %h | Data %h",
-                             addr, response_data);
-                    passed = passed + 1;
-                end
+            if (response_valid !== 1'b1) begin
+                $display("FAIL: Timeout for address %h", addr);
+                failed = failed + 1;
+            end
+            else if (response_data !== expected_data) begin
+                $display("FAIL: Address %h | Expected %h | Got %h",
+                         addr, expected_data, response_data);
+                failed = failed + 1;
+            end
+            else begin
+                $display("PASS: Address %h | Data %h",
+                         addr, response_data);
+                passed = passed + 1;
             end
         end
     endtask
 
-
     initial begin
+
+        // Initialize signals and counters
         reset = 1'b1;
         request_valid = 1'b0;
         address = 4'b0000;
@@ -104,114 +105,216 @@ module cache_2way_tb;
         @(negedge clk);
         reset = 1'b0;
 
-        // TEST 1: Cold miss - address 3, set 1
-        $display("\nTEST 1: Cold miss (address 3, set 1)");
+
+        // TEST 1: Cold miss
+        $display("\nTEST 1: Cold miss - address 3");
+
         cpu_read(4'b0011, 8'hA3);
+
         if (memory_read_count == 1) begin
-            $display("PASS: First access caused one memory read");
+            $display("PASS: One memory read occurred");
             passed = passed + 1;
-        end else begin
+        end
+        else begin
             $display("FAIL: Unexpected memory read count");
             failed = failed + 1;
         end
 
-        // TEST 2: Same address - should be a cache hit
-        $display("\nTEST 2: Cache hit on address 3");
+
+        // TEST 2: Cache hit
+        $display("\nTEST 2: Cache hit - address 3");
+
         reads_before = memory_read_count;
         cpu_read(4'b0011, 8'hA3);
+
         if (memory_read_count == reads_before) begin
-            $display("PASS: Cache hit did not access main memory");
+            $display("PASS: Cache hit did not access memory");
             passed = passed + 1;
-        end else begin
-            $display("FAIL: Cache hit accessed main memory");
+        end
+        else begin
+            $display("FAIL: Cache hit accessed memory");
             failed = failed + 1;
         end
 
-        // TEST 3: Another tag in the same set - fills Way 1
-        $display("\nTEST 3: Fill second way with address 5");
+
+        // TEST 3: Fill second way
+        $display("\nTEST 3: Fill second way - address 5");
+
         cpu_read(4'b0101, 8'hA5);
 
-        // TEST 4: Access first address again - makes Way 1 LRU
+
+        // TEST 4: Update LRU
         $display("\nTEST 4: Access address 3 to make Way 1 LRU");
+
         reads_before = memory_read_count;
         cpu_read(4'b0011, 8'hA3);
+
         if (memory_read_count == reads_before) begin
-            $display("PASS: Address 3 hit in cache");
+            $display("PASS: Address 3 hit");
             passed = passed + 1;
-        end else begin
-            $display("FAIL: Address 3 missed");
+        end
+        else begin
+            $display("FAIL: Address 3 unexpectedly missed");
             failed = failed + 1;
         end
 
-        // TEST 5: Third tag in same set - should evict Way 1 (address 5)
-        $display("\nTEST 5: Access address 7 (evicts LRU Way 1)");
+
+        // TEST 5: Evict Way 1
+        $display("\nTEST 5: Address 7 should evict Way 1");
+
         reads_before = memory_read_count;
         cpu_read(4'b0111, 8'hA7);
+
         if (memory_read_count == reads_before + 1) begin
-            $display("PASS: Conflict miss caused one memory refill");
+            $display("PASS: Conflict miss caused one refill");
             passed = passed + 1;
-        end else begin
-            $display("FAIL: Memory refill count unexpected");
+        end
+        else begin
+            $display("FAIL: Unexpected refill count");
             failed = failed + 1;
         end
 
-        // TEST 5B: Verify address 3 remained cached after address 7 replaced address 5
-        $display("\nTEST 5B: Verify address 3 remained cached");
+
+        // TEST 6: Address 3 should remain cached
+        $display("\nTEST 6: Verify address 3 remains cached");
+
         reads_before = memory_read_count;
         cpu_read(4'b0011, 8'hA3);
+
         if (memory_read_count == reads_before) begin
-            $display("PASS: Address 3 remained cached (Way 0 intact)");
+            $display("PASS: Address 3 remained cached");
             passed = passed + 1;
-        end else begin
+        end
+        else begin
             $display("FAIL: Address 3 was unexpectedly evicted");
             failed = failed + 1;
         end
 
-        // TEST 6: Address 5 should now miss because it was evicted
-        $display("\nTEST 6: Verify evicted address 5 causes miss");
+
+        // TEST 7: Address 5 should have been evicted
+        $display("\nTEST 7: Verify address 5 was evicted");
+
         reads_before = memory_read_count;
         cpu_read(4'b0101, 8'hA5);
+
         if (memory_read_count == reads_before + 1) begin
             $display("PASS: Evicted address caused a memory read");
             passed = passed + 1;
-        end else begin
-            $display("FAIL: Expected a memory read after eviction");
+        end
+        else begin
+            $display("FAIL: Expected a memory read");
             failed = failed + 1;
         end
 
-        // TEST 7: Different set (Set 0) - cold miss
-        $display("\nTEST 7: Access address 0 (Set 0)");
+
+        // TEST 8: Access different set
+        $display("\nTEST 8: Cold miss in Set 0 - address 0");
+
         reads_before = memory_read_count;
         cpu_read(4'b0000, 8'hA0);
+
         if (memory_read_count == reads_before + 1) begin
-            $display("PASS: Set 0 cold miss caused one memory read");
+            $display("PASS: Set 0 cold miss caused one read");
             passed = passed + 1;
-        end else begin
-            $display("FAIL: Set 0 cold miss did not access memory");
+        end
+        else begin
+            $display("FAIL: Unexpected Set 0 read count");
             failed = failed + 1;
         end
 
-        // TEST 8: Verify Set 1 lines remain intact after Set 0 access
-        $display("\nTEST 8: Verify Set 1 lines remain intact after Set 0 access");
+
+        // TEST 9: Verify Set 1 independence
+        // Addresses 3 and 5 should both be cached
+        $display("\nTEST 9: Verify Set 1 independence");
+
         reads_before = memory_read_count;
+
+        cpu_read(4'b0011, 8'hA3);
         cpu_read(4'b0101, 8'hA5);
-        cpu_read(4'b0111, 8'hA7);
+
         if (memory_read_count == reads_before) begin
-            $display("PASS: Set 1 cache lines remained intact without main memory access");
+            $display("PASS: Set 0 access did not affect Set 1");
             passed = passed + 1;
-        end else begin
-            $display("FAIL: Set 0 operation interfered with Set 1 lines");
+        end
+        else begin
+            $display("FAIL: Set 1 accessed main memory unexpectedly");
             failed = failed + 1;
         end
+
+
+        // TEST 10: Access address 5
+        // Way 0 (address 3) becomes the LRU victim
+        $display("\nTEST 10: Update LRU to make Way 0 the victim");
+
+        reads_before = memory_read_count;
+        cpu_read(4'b0101, 8'hA5);
+
+        if (memory_read_count == reads_before) begin
+            $display("PASS: Address 5 hit and updated LRU");
+            passed = passed + 1;
+        end
+        else begin
+            $display("FAIL: Address 5 unexpectedly missed");
+            failed = failed + 1;
+        end
+
+
+        // TEST 11: Address 9 should evict address 3
+        $display("\nTEST 11: Address 9 should evict Way 0");
+
+        reads_before = memory_read_count;
+        cpu_read(4'b1001, 8'hA9);
+
+        if (memory_read_count == reads_before + 1) begin
+            $display("PASS: Reverse LRU eviction caused one refill");
+            passed = passed + 1;
+        end
+        else begin
+            $display("FAIL: Unexpected reverse eviction refill count");
+            failed = failed + 1;
+        end
+
+
+        // TEST 12: Address 5 should remain cached
+        $display("\nTEST 12: Verify address 5 remains cached");
+
+        reads_before = memory_read_count;
+        cpu_read(4'b0101, 8'hA5);
+
+        if (memory_read_count == reads_before) begin
+            $display("PASS: Address 5 remained cached");
+            passed = passed + 1;
+        end
+        else begin
+            $display("FAIL: Address 5 was unexpectedly evicted");
+            failed = failed + 1;
+        end
+
+
+        // TEST 13: Address 3 should now miss
+        $display("\nTEST 13: Verify address 3 was evicted");
+
+        reads_before = memory_read_count;
+        cpu_read(4'b0011, 8'hA3);
+
+        if (memory_read_count == reads_before + 1) begin
+            $display("PASS: Address 3 caused a miss after eviction");
+            passed = passed + 1;
+        end
+        else begin
+            $display("FAIL: Address 3 was not evicted as expected");
+            failed = failed + 1;
+        end
+
 
         // Final report
         repeat (2) @(posedge clk);
 
-        $display("\n--------------------------------");
+        $display("\n================================");
         $display("CACHE INTEGRATION TEST COMPLETE");
         $display("PASSED: %0d", passed);
         $display("FAILED: %0d", failed);
-        $display("--------------------------------");
+        $display("================================");
 
         if (failed == 0)
             $display("ALL INTEGRATION TESTS PASSED");
@@ -221,6 +324,7 @@ module cache_2way_tb;
         end
 
         $finish;
+
     end
 
 endmodule
