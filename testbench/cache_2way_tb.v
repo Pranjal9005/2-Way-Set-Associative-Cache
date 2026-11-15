@@ -423,25 +423,32 @@ module cache_2way_tb;
         wait(request_ready == 1'b1);
 
 
-        // TEST 17: Hold request_valid until cache becomes ready
-        $display("\nTEST 17: Hold request_valid until acceptance");
+        // TEST 17: Hold request_valid until cache becomes ready, then submit
+        //          a second request.  The address must remain stable while
+        //          request_valid is HIGH and request_ready is LOW (ready/valid
+        //          protocol requirement).
+        $display("\nTEST 17: Hold request_valid until acceptance, then second request");
 
         // Ensure controller is idle
         wait(request_ready == 1'b1);
 
         reads_before = accepted_count;
 
-        // Send first request: address 2
+        // --- First request: address 2 ---
+        // Drive address and valid on a negedge so setup is clean.
         @(negedge clk);
-        address = 4'b0010;
+        address       = 4'b0010;
         request_valid = 1'b1;
 
+        // Wait for the rising edge where the handshake occurs
+        // (request_valid & request_ready both HIGH simultaneously).
         @(posedge clk);
         #1;
 
-        // First request has been accepted
+        // First request has been accepted (controller moves to LOOKUP,
+        // so request_ready goes LOW on the very next cycle).
         if (request_ready == 1'b0) begin
-            $display("PASS: First request accepted");
+            $display("PASS: First request accepted, cache now busy");
             passed = passed + 1;
         end
         else begin
@@ -449,11 +456,12 @@ module cache_2way_tb;
             failed = failed + 1;
         end
 
-        // Change address while keeping request_valid HIGH
+        // De-assert valid immediately after acceptance -- address must
+        // NOT change while the cache is busy processing the first request.
         @(negedge clk);
-        address = 4'b0100;
+        request_valid = 1'b0;
 
-        // Wait for first response
+        // Wait for the first response
         handshake_timeout = 0;
 
         while (response_valid !== 1'b1 &&
@@ -464,8 +472,8 @@ module cache_2way_tb;
         end
 
         if (response_valid === 1'b1 &&
-            response_data === 8'hA2) begin
-            $display("PASS: First response received correctly");
+            response_data  === 8'hA2) begin
+            $display("PASS: First response received correctly (data=A2)");
             passed = passed + 1;
         end
         else begin
@@ -473,31 +481,32 @@ module cache_2way_tb;
             failed = failed + 1;
         end
 
-        // Keep request_valid HIGH until next request acceptance
-        handshake_timeout = 0;
+        // Wait for controller to return to IDLE before submitting the
+        // second request (clean, protocol-compliant transaction).
+        wait(request_ready == 1'b1);
 
-        while (request_ready !== 1'b1 &&
-               handshake_timeout < 20) begin
-            @(negedge clk);
-            handshake_timeout = handshake_timeout + 1;
-        end
+        // --- Second request: address 4 ---
+        @(negedge clk);
+        address       = 4'b0100;
+        request_valid = 1'b1;
 
-        if (request_ready === 1'b1) begin
-            // Request is accepted on the next rising edge
-            @(posedge clk);
-            #1;
-            request_valid = 1'b0;
+        // Keep request_valid HIGH until the handshake occurs.
+        @(posedge clk);
+        #1;
 
-            $display("PASS: Second request accepted when ready");
+        if (request_ready == 1'b0) begin
+            $display("PASS: Second request accepted when cache became ready");
             passed = passed + 1;
         end
         else begin
-            $display("FAIL: Cache did not become ready");
+            $display("FAIL: Cache did not become ready for second request");
             failed = failed + 1;
-            request_valid = 1'b0;
         end
 
-        // Wait for second response
+        @(negedge clk);
+        request_valid = 1'b0;
+
+        // Wait for the second response
         handshake_timeout = 0;
 
         while (response_valid !== 1'b1 &&
@@ -508,8 +517,8 @@ module cache_2way_tb;
         end
 
         if (response_valid === 1'b1 &&
-            response_data === 8'hA4) begin
-            $display("PASS: Second response received correctly");
+            response_data  === 8'hA4) begin
+            $display("PASS: Second response received correctly (data=A4)");
             passed = passed + 1;
         end
         else begin
@@ -517,13 +526,13 @@ module cache_2way_tb;
             failed = failed + 1;
         end
 
-        // Exactly two requests should have been accepted
+        // Exactly two requests should have been accepted in this test
         if (accepted_count == reads_before + 2) begin
             $display("PASS: Exactly two requests accepted");
             passed = passed + 1;
         end
         else begin
-            $display("FAIL: Unexpected request acceptance count");
+            $display("FAIL: Unexpected request acceptance count (%0d)", accepted_count - reads_before);
             failed = failed + 1;
         end
 
