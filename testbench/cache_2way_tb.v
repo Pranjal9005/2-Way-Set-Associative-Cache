@@ -16,6 +16,8 @@ module cache_2way_tb;
     integer failed;
     integer memory_read_count;
     integer reads_before;
+    integer accepted_count;
+    integer handshake_timeout;
     integer addr;
 
     // Instantiate complete cache
@@ -36,12 +38,19 @@ module cache_2way_tb;
         forever #5 clk = ~clk;
     end
 
-    // Count main-memory read requests
+    // Count memory reads and accepted CPU requests
     always @(posedge clk) begin
-        if (reset)
+        if (reset) begin
             memory_read_count = 0;
-        else if (dut.mem_read_req)
-            memory_read_count = memory_read_count + 1;
+            accepted_count = 0;
+        end
+        else begin
+            if (dut.mem_read_req)
+                memory_read_count = memory_read_count + 1;
+
+            if (request_valid && request_ready)
+                accepted_count = accepted_count + 1;
+        end
     end
 
     // CPU read task
@@ -100,6 +109,7 @@ module cache_2way_tb;
         passed = 0;
         failed = 0;
         memory_read_count = 0;
+        accepted_count = 0;
 
         // Reset
         repeat (2) @(posedge clk);
@@ -225,7 +235,6 @@ module cache_2way_tb;
 
 
         // TEST 9: Verify Set 1 independence
-        // Addresses 3 and 5 should both be cached
         $display("\nTEST 9: Verify Set 1 independence");
 
         reads_before = memory_read_count;
@@ -243,8 +252,7 @@ module cache_2way_tb;
         end
 
 
-        // TEST 10: Access address 5
-        // Way 0 (address 3) becomes the LRU victim
+        // TEST 10: Update LRU to make Way 0 the victim
         $display("\nTEST 10: Update LRU to make Way 0 the victim");
 
         reads_before = memory_read_count;
@@ -311,18 +319,14 @@ module cache_2way_tb;
         // TEST 14: Reset after filling the cache
         $display("\nTEST 14: Reset after cache fill");
 
-        // Assert reset
         @(negedge clk);
         reset = 1'b1;
 
-        // Hold reset for two clock cycles
         repeat (2) @(posedge clk);
 
-        // Deassert reset
         @(negedge clk);
         reset = 1'b0;
 
-        // Previously cached address should now miss
         reads_before = memory_read_count;
 
         $display("Access address 3 after reset");
@@ -337,6 +341,7 @@ module cache_2way_tb;
             failed = failed + 1;
         end
 
+
         // TEST 15: Verify all 16 memory addresses
         $display("\nTEST 15: Verify all 16 addresses");
 
@@ -344,7 +349,81 @@ module cache_2way_tb;
             cpu_read(addr[3:0], 8'hA0 + addr);
         end
 
-        // Final report
+
+        // TEST 16: Request handshake verification
+        $display("\nTEST 16: Request handshake verification");
+
+        // Ensure controller is idle
+        wait(request_ready == 1'b1);
+
+        reads_before = accepted_count;
+
+        // Send first request: address 2
+        @(negedge clk);
+        address = 4'b0010;
+        request_valid = 1'b1;
+
+        // Wait for request acceptance
+        @(posedge clk);
+        #1;
+        request_valid = 1'b0;
+
+        // Check that cache becomes busy
+        if (request_ready == 1'b0) begin
+            $display("PASS: Cache became busy after accepting request");
+            passed = passed + 1;
+        end
+        else begin
+            $display("FAIL: Cache did not enter busy state");
+            failed = failed + 1;
+        end
+
+        // Present second request while cache is busy
+        @(negedge clk);
+        address = 4'b0100;
+        request_valid = 1'b1;
+
+        // Keep request asserted for two clock edges
+        repeat (2) @(posedge clk);
+
+        // Withdraw second request before cache becomes ready
+        @(negedge clk);
+        request_valid = 1'b0;
+
+        // Wait for first request response
+        handshake_timeout = 0;
+
+        while (response_valid !== 1'b1 &&
+               handshake_timeout < 20) begin
+            @(posedge clk);
+            #1;
+            handshake_timeout = handshake_timeout + 1;
+        end
+
+        if (response_valid === 1'b1) begin
+            $display("PASS: First request received a response");
+            passed = passed + 1;
+        end
+        else begin
+            $display("FAIL: First request timed out");
+            failed = failed + 1;
+        end
+
+        // Only first request should have been accepted
+        if (accepted_count == reads_before + 1) begin
+            $display("PASS: Busy-state request was not accepted");
+            passed = passed + 1;
+        end
+        else begin
+            $display("FAIL: Unexpected request acceptance count");
+            failed = failed + 1;
+        end
+
+        // Wait for controller to return to idle
+        wait(request_ready == 1'b1);
+
+
+        // FINAL REPORT
         repeat (2) @(posedge clk);
 
         $display("\n================================");
