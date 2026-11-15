@@ -6,7 +6,9 @@ module address_decoder_tb;
     wire [2:0] tag;
     wire       set_index;
 
-    // Instantiate Device Under Test (DUT)
+    integer i;
+    integer passed;
+
     address_decoder DUT (
         .address(address),
         .tag(tag),
@@ -14,23 +16,45 @@ module address_decoder_tb;
     );
 
     initial begin
-        $display("Address | Tag | Set");
-        $display("--------------------");
+        $dumpfile("simulation/waveforms/address_decoder.vcd");
+        $dumpvars(0, address_decoder_tb);
 
-        address = 4'b1010;
-        #10;
-        $display("  %b  | %b  | %b", address, tag, set_index);
+        passed = 0;
 
-        address = 4'b1011;
-        #10;
-        $display("  %b  | %b  | %b", address, tag, set_index);
+        $display("==================================");
+        $display(" ADDRESS DECODER TEST");
+        $display("==================================");
+        $display("Address | Expected Tag | Actual Tag | Set");
+        $display("----------------------------------");
 
-        address = 4'b0110;
-        #10;
-        $display("  %b  | %b  | %b", address, tag, set_index);
+        // Test all 16 possible 4-bit addresses
+        for (i = 0; i < 16; i = i + 1) begin
+
+            address = i;
+            #10;
+
+            if ((tag !== (i >> 1)) ||
+                (set_index !== (i & 1))) begin
+
+                $display("FAIL: Address=%b Tag=%b Set=%b",
+                         address, tag, set_index);
+
+                $fatal(1, "Address decoder mismatch");
+            end
+
+            else begin
+                $display("PASS: %b       %b           %b        %b",
+                         address, (i >> 1), tag, set_index);
+                passed = passed + 1;
+            end
+
+        end
+
+        $display("----------------------------------");
+        $display("RESULT: %0d/16 tests passed", passed);
+        $display("ADDRESS DECODER TEST PASSED");
 
         $finish;
     end
 
 endmodule
-
