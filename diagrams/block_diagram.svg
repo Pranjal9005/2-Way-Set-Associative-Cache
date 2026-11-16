@@ -1,0 +1,158 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="610" viewBox="0 0 1000 610" font-family="Helvetica, Arial, sans-serif">
+  <title>2-Way Set-Associative Cache - Top-Level Block Diagram (cache_2way)</title>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#333"/>
+    </marker>
+    <marker id="arrowg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#1f7a3f"/>
+    </marker>
+    <style>
+      .box   { fill:#f4f6fb; stroke:#2f3b52; stroke-width:1.6; }
+      .ctrl  { fill:#e6eefc; stroke:#1f4fa3; stroke-width:1.8; }
+      .mem   { fill:#fdf1e3; stroke:#a35f1f; stroke-width:1.6; }
+      .way   { fill:#ffffff; stroke:#2f3b52; stroke-width:1.2; }
+      .title { font-size:15px; font-weight:bold; fill:#1b2333; }
+      .sub   { font-size:11.5px; fill:#3b4558; }
+      .sig   { font-size:11px; fill:#5a2d82; font-style:italic; }
+      .wire  { stroke:#333; stroke-width:1.4; fill:none; marker-end:url(#arrow); }
+      .fb    { stroke:#1f7a3f; stroke-width:1.4; fill:none; marker-end:url(#arrowg); stroke-dasharray:5 3; }
+      .fbsig { font-size:11px; fill:#1f7a3f; font-style:italic; }
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="1000" height="610" fill="#ffffff"/>
+  <text x="500" y="20" text-anchor="middle" class="title">cache_2way: top-level datapath and control</text>
+
+  <!-- CPU / testbench -->
+  <rect class="box" x="10" y="35" width="110" height="75" rx="8"/>
+  <text x="65" y="62" text-anchor="middle" class="title">CPU /</text>
+  <text x="65" y="79" text-anchor="middle" class="title">Testbench</text>
+  <text x="65" y="98" text-anchor="middle" class="sub">4-bit addr, reads</text>
+
+  <!-- Controller -->
+  <rect class="ctrl" x="300" y="35" width="320" height="105" rx="8"/>
+  <text x="460" y="60" text-anchor="middle" class="title">cache_controller</text>
+  <text x="460" y="80" text-anchor="middle" class="sub">6-state FSM: IDLE, LOOKUP, MEM_READ,</text>
+  <text x="460" y="95" text-anchor="middle" class="sub">WAIT_MEM, FILL, RESPONSE</text>
+  <text x="460" y="115" text-anchor="middle" class="sub">address_reg · selected_way_reg · response_data_reg</text>
+
+  <!-- Main memory -->
+  <rect class="mem" x="790" y="35" width="190" height="80" rx="8"/>
+  <text x="885" y="62" text-anchor="middle" class="title">main_memory</text>
+  <text x="885" y="80" text-anchor="middle" class="sub">16 × 8-bit locations</text>
+  <text x="885" y="96" text-anchor="middle" class="sub">reset value: mem[A] = A0h + A</text>
+
+  <!-- Address decoder -->
+  <rect class="box" x="300" y="195" width="320" height="60" rx="8"/>
+  <text x="460" y="220" text-anchor="middle" class="title">address_decoder</text>
+  <text x="460" y="240" text-anchor="middle" class="sub">tag = addr[3:1]   ·   set_index = addr[0]</text>
+
+  <!-- LRU -->
+  <rect class="box" x="20" y="310" width="150" height="80" rx="8"/>
+  <text x="95" y="340" text-anchor="middle" class="title">lru_unit</text>
+  <text x="95" y="358" text-anchor="middle" class="sub">1 bit per set (2 bits)</text>
+  <text x="95" y="374" text-anchor="middle" class="sub">bit = next victim way</text>
+
+  <!-- Cache array -->
+  <rect class="box" x="300" y="300" width="320" height="115" rx="8"/>
+  <text x="460" y="322" text-anchor="middle" class="title">cache_array (2 sets × 2 ways)</text>
+  <rect class="way" x="315" y="335" width="140" height="65" rx="5"/>
+  <text x="385" y="355" text-anchor="middle" class="sub" font-weight="bold">Way 0</text>
+  <text x="385" y="373" text-anchor="middle" class="sub">V | Tag[2:0] | Data[7:0]</text>
+  <text x="385" y="389" text-anchor="middle" class="sub">sets 0 and 1</text>
+  <rect class="way" x="465" y="335" width="140" height="65" rx="5"/>
+  <text x="535" y="355" text-anchor="middle" class="sub" font-weight="bold">Way 1</text>
+  <text x="535" y="373" text-anchor="middle" class="sub">V | Tag[2:0] | Data[7:0]</text>
+  <text x="535" y="389" text-anchor="middle" class="sub">sets 0 and 1</text>
+
+  <!-- Tag comparator -->
+  <rect class="box" x="300" y="470" width="135" height="60" rx="8"/>
+  <text x="367" y="495" text-anchor="middle" class="title">tag_comparator</text>
+  <text x="367" y="513" text-anchor="middle" class="sub">2 × 3-bit equality</text>
+
+  <!-- Hit/miss unit -->
+  <rect class="box" x="485" y="470" width="135" height="60" rx="8"/>
+  <text x="552" y="495" text-anchor="middle" class="title">hit_miss_unit</text>
+  <text x="552" y="513" text-anchor="middle" class="sub">hit · selected_way</text>
+
+  <!-- Hit data mux -->
+  <rect class="box" x="790" y="345" width="190" height="65" rx="8"/>
+  <text x="885" y="370" text-anchor="middle" class="title">hit_data mux</text>
+  <text x="885" y="390" text-anchor="middle" class="sub">selected_way ? way1 : way0</text>
+
+  <!-- ===== Wires ===== -->
+
+  <!-- CPU <-> controller -->
+  <path class="wire" d="M120,52 L300,52"/>
+  <text x="210" y="45" text-anchor="middle" class="sig">request_valid, cpu_address</text>
+  <path class="wire" d="M300,92 L120,92"/>
+  <text x="210" y="86" text-anchor="middle" class="sig">request_ready,</text>
+  <text x="210" y="106" text-anchor="middle" class="sig">response_valid, cpu_read_data</text>
+
+  <!-- controller <-> memory -->
+  <path class="wire" d="M620,55 L790,55"/>
+  <text x="705" y="48" text-anchor="middle" class="sig">mem_read_req, mem_address</text>
+  <path class="wire" d="M790,95 L620,95"/>
+  <text x="705" y="89" text-anchor="middle" class="sig">mem_ready, mem_read_data</text>
+
+  <!-- controller -> decoder -->
+  <path class="wire" d="M460,140 L460,195"/>
+  <text x="452" y="185" text-anchor="end" class="sig">mem_address (latched request)</text>
+
+  <!-- decoder -> cache array (set_index) -->
+  <path class="wire" d="M420,255 L420,300"/>
+  <text x="428" y="282" class="sig">set_index</text>
+
+  <!-- decoder -> LRU (set_index) -->
+  <path class="wire" d="M300,215 L130,215 L130,310"/>
+  <text x="138" y="232" class="sig">set_index</text>
+
+  <!-- decoder -> tag comparator (requested_tag) -->
+  <path class="wire" d="M300,245 L240,245 L240,500 L300,500"/>
+  <text x="232" y="420" class="sig" transform="rotate(-90 232 420)">requested_tag</text>
+
+  <!-- controller -> LRU (update) -->
+  <path class="wire" d="M300,130 L40,130 L40,310"/>
+  <text x="200" y="124" text-anchor="middle" class="sig">lru_update_en, lru_access_way</text>
+
+  <!-- controller -> cache array (fill) -->
+  <path class="wire" d="M620,125 L700,125 L700,320 L620,320"/>
+  <text x="708" y="200" class="sig">fill port:</text>
+  <text x="708" y="214" class="sig">write_en,</text>
+  <text x="708" y="228" class="sig">write_way,</text>
+  <text x="708" y="242" class="sig">write_tag,</text>
+  <text x="708" y="256" class="sig">write_data</text>
+
+  <!-- cache array -> tag comparator / hit-miss -->
+  <path class="wire" d="M367,415 L367,470"/>
+  <text x="375" y="447" class="sig">tag_way0/1</text>
+  <path class="wire" d="M552,415 L552,470"/>
+  <text x="560" y="447" class="sig">valid_way0/1</text>
+
+  <!-- tag comparator -> hit/miss -->
+  <path class="wire" d="M435,500 L485,500"/>
+  <text x="460" y="493" text-anchor="middle" class="sig">match</text>
+
+  <!-- cache array -> mux -->
+  <path class="wire" d="M620,385 L790,385"/>
+  <text x="705" y="379" text-anchor="middle" class="sig">data_way0/1</text>
+
+  <!-- LRU -> hit/miss -->
+  <path class="wire" d="M95,390 L95,565 L552,565 L552,530"/>
+  <text x="200" y="559" class="sig">lru_bit (victim of current set)</text>
+
+  <!-- hit/miss -> mux -->
+  <path class="wire" d="M620,515 L885,515 L885,410"/>
+  <text x="750" y="509" text-anchor="middle" class="sig">selected_way</text>
+
+  <!-- lookup feedback to controller -->
+  <path class="fb" d="M980,377 L992,377 L992,165 L590,165 L590,140"/>
+  <text x="870" y="158" text-anchor="middle" class="fbsig">cache_hit, selected_way, hit_data</text>
+
+  <!-- legend -->
+  <line x1="650" y1="585" x2="690" y2="585" stroke="#333" stroke-width="1.4"/>
+  <text x="696" y="589" class="sub">datapath / control signal</text>
+  <line x1="840" y1="585" x2="880" y2="585" stroke="#1f7a3f" stroke-width="1.4" stroke-dasharray="5 3"/>
+  <text x="886" y="589" class="sub">lookup feedback</text>
+</svg>
