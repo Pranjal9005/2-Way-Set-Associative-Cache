@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="470" viewBox="0 0 900 470" font-family="Helvetica, Arial, sans-serif">
+  <title>cache_controller - Finite State Machine</title>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#333"/>
+    </marker>
+    <style>
+      .state { fill:#e6eefc; stroke:#1f4fa3; stroke-width:1.8; }
+      .reset { fill:#fdf1e3; stroke:#a35f1f; stroke-width:1.8; }
+      .name  { font-size:15px; font-weight:bold; fill:#1b2333; }
+      .out   { font-size:11px; fill:#3b4558; }
+      .cond  { font-size:12px; fill:#5a2d82; font-style:italic; }
+      .edge  { stroke:#333; stroke-width:1.5; fill:none; marker-end:url(#arrow); }
+      .hdr   { font-size:16px; font-weight:bold; fill:#1b2333; }
+      .note  { font-size:12px; fill:#3b4558; }
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="900" height="470" fill="#ffffff"/>
+  <text x="450" y="24" text-anchor="middle" class="hdr">cache_controller state machine (3-bit state, synchronous reset to IDLE)</text>
+
+  <!-- States: top row -->
+  <rect class="reset" x="40"  y="80"  width="150" height="70" rx="35"/>
+  <text x="115" y="110" text-anchor="middle" class="name">IDLE</text>
+  <text x="115" y="128" text-anchor="middle" class="out">request_ready = 1</text>
+
+  <rect class="state" x="330" y="80"  width="170" height="70" rx="35"/>
+  <text x="415" y="106" text-anchor="middle" class="name">LOOKUP</text>
+  <text x="415" y="123" text-anchor="middle" class="out">lookup_active = 1</text>
+  <text x="415" y="137" text-anchor="middle" class="out">hit: LRU update</text>
+
+  <rect class="state" x="680" y="80"  width="180" height="70" rx="35"/>
+  <text x="770" y="110" text-anchor="middle" class="name">RESPONSE</text>
+  <text x="770" y="128" text-anchor="middle" class="out">response_valid = 1</text>
+
+  <!-- States: bottom row -->
+  <rect class="state" x="160" y="280" width="170" height="70" rx="35"/>
+  <text x="245" y="310" text-anchor="middle" class="name">MEM_READ</text>
+  <text x="245" y="328" text-anchor="middle" class="out">mem_read_req = 1</text>
+
+  <rect class="state" x="420" y="280" width="170" height="70" rx="35"/>
+  <text x="505" y="306" text-anchor="middle" class="name">WAIT_MEM</text>
+  <text x="505" y="323" text-anchor="middle" class="out">capture mem_read_data</text>
+  <text x="505" y="337" text-anchor="middle" class="out">when mem_ready</text>
+
+  <rect class="state" x="680" y="280" width="180" height="70" rx="35"/>
+  <text x="770" y="306" text-anchor="middle" class="name">FILL</text>
+  <text x="770" y="323" text-anchor="middle" class="out">cache_write_en = 1</text>
+  <text x="770" y="337" text-anchor="middle" class="out">LRU update (new line = MRU)</text>
+
+  <!-- reset entry -->
+  <path class="edge" d="M5,115 L40,115"/>
+  <text x="6" y="106" class="cond">reset</text>
+
+  <!-- IDLE self-loop -->
+  <path class="edge" d="M70,150 C40,205 190,205 160,150"/>
+  <text x="115" y="215" text-anchor="middle" class="cond">!request_valid</text>
+
+  <!-- IDLE -> LOOKUP -->
+  <path class="edge" d="M190,115 L330,115"/>
+  <text x="260" y="100" text-anchor="middle" class="cond">request_valid</text>
+  <text x="260" y="135" text-anchor="middle" class="out">latch address_reg</text>
+
+  <!-- LOOKUP -> RESPONSE (hit) -->
+  <path class="edge" d="M500,115 L680,115"/>
+  <text x="590" y="105" text-anchor="middle" class="cond">cache_hit</text>
+  <text x="590" y="135" text-anchor="middle" class="out">latch hit_data</text>
+
+  <!-- LOOKUP -> MEM_READ (miss) -->
+  <path class="edge" d="M380,150 L285,280"/>
+  <text x="300" y="215" text-anchor="end" class="cond">!cache_hit (miss)</text>
+  <text x="300" y="230" text-anchor="end" class="out">latch selected_way</text>
+
+  <!-- MEM_READ -> WAIT_MEM -->
+  <path class="edge" d="M330,315 L420,315"/>
+  <text x="375" y="305" text-anchor="middle" class="cond">always</text>
+
+  <!-- WAIT_MEM self loop -->
+  <path class="edge" d="M470,350 C440,410 570,410 540,350"/>
+  <text x="505" y="418" text-anchor="middle" class="cond">!mem_ready</text>
+
+  <!-- WAIT_MEM -> FILL -->
+  <path class="edge" d="M590,315 L680,315"/>
+  <text x="635" y="305" text-anchor="middle" class="cond">mem_ready</text>
+
+  <!-- FILL -> RESPONSE -->
+  <path class="edge" d="M770,280 L770,150"/>
+  <text x="778" y="220" class="cond">always</text>
+
+  <!-- RESPONSE -> IDLE -->
+  <path class="edge" d="M770,80 C770,40 115,40 115,78" stroke-dasharray="0"/>
+  <text x="450" y="50" text-anchor="middle" class="cond">always (one-cycle response pulse)</text>
+
+  <!-- latency note -->
+  <text x="40" y="440" class="note">Latency from the accepting clock edge to response_valid: hit = 1 cycle (LOOKUP → RESPONSE),</text>
+  <text x="40" y="458" class="note">miss = 4 cycles (LOOKUP → MEM_READ → WAIT_MEM → FILL → RESPONSE) with the single-cycle main_memory.</text>
+</svg>
