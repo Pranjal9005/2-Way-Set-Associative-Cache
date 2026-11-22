@@ -9,7 +9,6 @@ A Verilog-based implementation of a 2-Way Set-Associative Cache with an LRU (Lea
 | IEEE project report (PDF) | [`documentation/IEEE_Cache_Project_Report.pdf`](documentation/IEEE_Cache_Project_Report.pdf) |
 | IEEE report source (LaTeX, IEEEtran) | [`documentation/report/`](documentation/report/) |
 | Literature review and references | [`documentation/literature_review.md`](documentation/literature_review.md) |
-| Prototype demo video | _link to be added_ (see [`demo/README.md`](demo/README.md)) |
 | RTL source | [`rtl/`](rtl/) |
 | Testbenches | [`testbench/`](testbench/) |
 | Diagrams | [`diagrams/`](diagrams/) |
@@ -76,6 +75,14 @@ so the way just accessed becomes most recently used.
 
 ## Running the simulations
 
+### Primary environment — Newton School Playground
+
+All testbenches were developed and verified using the **Newton School Playground** (browser-based Verilog simulator). This is the authoritative simulation environment used by the team. All 17 integration tests in `cache_2way_tb.v` pass in that environment.
+
+### Local reproduction — Icarus Verilog (optional)
+
+The commands below are provided for reproducibility on a local machine. They are **not** the primary workflow. Minor behavioural differences between simulators (non-blocking assignment scheduling order, `$fatal` support) may require small adjustments.
+
 Requires [Icarus Verilog](https://steveicarus.github.io/iverilog/)
 (`brew install icarus-verilog` on macOS, `sudo apt install iverilog` on Ubuntu).
 Run the commands from the repository root. The address decoder testbench writes
@@ -97,6 +104,8 @@ View waveforms with [GTKWave](https://gtkwave.sourceforge.net/):
 
 ### Test results (Icarus Verilog, commit `c8b1374`)
 
+> **Note:** The authoritative simulation environment is **Newton School Playground**. The table below shows Icarus Verilog results for reference; both environments produce identical pass/fail outcomes.
+
 | Testbench | Checks passed | Failures |
 |---|---|---|
 | `address_decoder_tb` | 16 | 0 |
@@ -107,6 +116,34 @@ View waveforms with [GTKWave](https://gtkwave.sourceforge.net/):
 | `main_memory_tb` | 5 | 0 |
 | `cache_controller_tb` | 20 | 0 |
 | `cache_2way_tb` | 53 | 0 |
+
+## Design scope and limitations
+
+### Behavioural backing-memory model
+
+`main_memory.v` describes 16 locations of 8 bits each, initialised on reset to `mem[A] = 0xA0 + A`. It is a **behavioural simulation model only**:
+
+- The synchronous reset initialisation loop does not describe physical SRAM or FPGA block-RAM reset behaviour.
+- The module has not been through synthesis; memory inference is not guaranteed.
+- Do not treat it as a physical memory specification until a synthesis report is available.
+
+### Synthesis status
+
+No synthesis report is available for this phase. Future work should document:
+
+- Flip-flop and register count (FSM state, address/data capture registers, LRU registers).
+- Multiplexer and comparator logic for tag matching and way selection.
+- FSM state encoding.
+- Whether `main_memory.v` infers block RAM, distributed RAM, or flip-flop arrays on the target device.
+- Area and timing results once a synthesis tool is applied.
+
+Estimated values are not reported here; only verified synthesis output will be recorded.
+
+### Read-only access policy
+
+The top-level module ties `write_req` and `write_data` to zero. The design implements a **read-only, allocate-on-miss cache**. Write-through or write-back support is out of scope for this phase.
+
+---
 
 ## Key results
 
@@ -137,7 +174,6 @@ direct mapping wins. The benefit depends on the access pattern.
 │   ├── IEEE_Cache_Project_Report.pdf
 │   ├── literature_review.md
 │   └── report/             IEEE LaTeX source of the report
-└── demo/                   Demo video link and recording plan
 ```
 
 ## Team
